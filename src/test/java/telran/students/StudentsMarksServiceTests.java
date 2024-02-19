@@ -138,8 +138,18 @@ class StudentsMarksServiceTests {
 		List<Student> expected = List.of(students[4],students[6]);
 		assertIterableEquals(expected, studentsService.getStudentsMarksAmountBetween(0, 1));
 	}
-	
-	
+	@Test
+	void getStudentMarksAtDatesTest() {
+		List<Mark> expected = List.of(new Mark(SUBJECT1,70,DATE1),
+				 new Mark(SUBJECT1,80, DATE2));
+		assertIterableEquals(expected, studentsService.getStudentMarksAtDates(ID1, DATE1, DATE2));
+		assertTrue(studentsService.getStudentMarksAtDates(ID1, DATE3, DATE4).isEmpty());
+		assertThrowsExactly(StudentNotFoundException.class, () -> studentsService.getStudentMarksAtDates(ID1+1000, DATE2, DATE1) );
+	}
+	@Test 
+	void getBestStudentsTest() {
+		assertEquals(students[5],studentsService.getBestStudents(1));
+	}
 	
 	
 	

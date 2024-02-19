@@ -2,8 +2,10 @@ package telran.students.service;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 import org.bson.Document;
@@ -246,7 +248,33 @@ public class StudentsServiceImpl implements StudentsService {
 		// TODO gets only marks on the dates in a closed range [from, to]
 		// of a given student (the same as getStudentsMarksSubject just different match operation
 		// think of DRY (Don't Repeat Yourself)
-		return null;
+		if(!studentRepo.existsById(id)) {
+			throw new StudentNotFoundException();
+			}
+		MatchOperation matchStudentOperation = Aggregation.match(Criteria.where("id").is(id));
+		UnwindOperation unwindOperation = Aggregation.unwind("marks");
+//		int daysBetween = (int) ChronoUnit.DAYS.between(from, to);
+//		BucketAutoOperation bucketOperation = Aggregation.bucketAuto("marks.date",  daysBetween);
+		MatchOperation matchRangeOperation = Aggregation.match(Criteria.where("marks.date").lte(from).gte(to));
+		ProjectionOperation projectOperation = Aggregation.project("marks.subject",
+				"marks.score", "marks.date");
+		
+		Aggregation pipeline = Aggregation.newAggregation(matchStudentOperation,
+				unwindOperation,matchRangeOperation,projectOperation);
+		var aggregationResult = mongoTemplate.aggregate(pipeline, StudentDoc.class,
+				Document.class);
+		
+		List<Document> documents = aggregationResult.getMappedResults();
+		
+		log.debug("received {} documents", documents.size());
+		List<Mark> res = documents.stream()
+				.map(d -> new Mark(d.getString("subject"), d.getInteger("score"),
+						d.getDate("date").toInstant()
+					      .atZone(ZoneId.systemDefault())
+					      .toLocalDate()))
+				.toList();
+		log.debug("marks by date from {} to {} of student {} are {}", from, to , id, res);
+		return res;
 	}
 
 	@Override
@@ -255,7 +283,27 @@ public class StudentsServiceImpl implements StudentsService {
 		//Best students are the ones who have most scores greater than 80
 		//consider aggregation method count() instead of avg() that we have used at CW #72
 		// and LimitOperation as additional AggregationOperation
-		return null;
+		UnwindOperation unwindOperation = Aggregation.unwind("marks");
+	    MatchOperation matchOperation = Aggregation.match(Criteria.where("marks.score")
+				.gt(80));
+	   
+		GroupOperation groupOperation = Aggregation.group("id").count().as("countId");
+		
+		LimitOperation limitOperation = Aggregation.limit(nStudents);
+		 
+		
+		Aggregation pipeline = Aggregation.newAggregation(unwindOperation,matchOperation,
+				groupOperation,
+				 limitOperation);
+		var aggregationResult = mongoTemplate.aggregate(pipeline, StudentDoc.class, Document.class);
+		List<Document> documents = aggregationResult.getMappedResults();
+		List<Long> res =
+				documents.stream()
+				.map(d -> d.getLong("_id"))
+				.toList();
+		log.debug("The best students with scores greater than 80 are {}", res);
+		return res;
+		
 	}
 
 	@Override
@@ -266,6 +314,27 @@ public class StudentsServiceImpl implements StudentsService {
 		//instead of GroupOperation to apply AggregationExpression
 		// (with AccumulatorOperators.Sum) and
 		// ProjectionOperation for adding new fields with computed values from AggregationExpression
+		UnwindOperation unwindOperation = Aggregation.unwind("marks"); 
+		GroupOperation groupOperation = Aggregation.group("id").sum("marks.score").as("sumScore");
+		SortOperation sortOperation = Aggregation.sort(Direction.ASC, "sumScore");
+		ProjectionOperation projectionOperation = Aggregation.project("_id","sumScore");
+		Aggregation pipeline = Aggregation.newAggregation(unwindOperation,groupOperation,
+				sortOperation,
+				 projectionOperation);
+		var aggregationResult = mongoTemplate.aggregate(pipeline, StudentDoc.class, Document.class);
+		List<Document> documents = aggregationResult.getMappedResults();
+		List<Long> res =
+				documents.stream()
+				.map(d -> d.getLong("_id"), d.getLong("sumScore").intValue())
+				.toList();
+		log.debug("The best students with scores greater than 80 are {}", res);
+		return res;
+		
+		
+		
+		
+		
+		
 		return null;
 	}
 	
