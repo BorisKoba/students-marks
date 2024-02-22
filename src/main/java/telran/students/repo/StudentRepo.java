@@ -32,7 +32,7 @@ List<IdPhone> findFewMarks(int nMarks);
 		+ "{marks:{$not:{$elemMatch:{score:{$lte:?1}}}}},"
 		+ "{marks:{$elemMatch:{subject:{$eq:?0}}}}]}")
 List<IdPhone> findStudentsAllGoodMarksSubject(String subject, int thresholdScore);
-@Query("{$expr:{$and:[{$gte:[$marks, ?0]},{$lte:[{$size:$marks},?1]}]}}")
+@Query("{$expr:{$and:[{$gte:[{$size:$marks}, ?0]},{$lte:[{$size:$marks},?1]}]}}")
 List<IdPhone> findStudentsMarksAmountBetween(int min, int max);
 
 
